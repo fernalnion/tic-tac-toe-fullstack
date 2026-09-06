@@ -205,7 +205,7 @@ public class GameServiceTests
 
         var result = _gameService.UndoMove(game.Id);
 
-        Assert.Equal(Player.X, result.CurrentPlayer);
+        Assert.Equal(Player.O, result.CurrentPlayer);
         Assert.Null(result.Board[1 * 3 + 1]); // Cell (1,1) should be empty
         Assert.Single(result.MoveHistory); // Only one move should remain
         Assert.Equal(Player.X, result.MoveHistory[0].Player);
@@ -245,6 +245,86 @@ public class GameServiceTests
 
         Assert.Throws<KeyNotFoundException>(()=>
         _gameService.ResetGame(unknownGameId));
+    }
+
+    [Fact]
+    public void Scoreboard_ShouldUpdateWhenPlayerWins()
+    {
+        var game = CreateGame();
+
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 0});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 0});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 1});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 1});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 2}); 
+
+        var scoreboard = _gameService.GetScoreboard();
+
+        Assert.Equal(1, scoreboard.PlayerXWins);
+        Assert.Equal(0, scoreboard.PlayerOWins);
+        Assert.Equal(0, scoreboard.Draws);
+     }
+
+     [Fact]
+     public void Scoreboard_ShouldUpdateWhenGameDraws()
+     {
+         var game = CreateGame();
+
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 0});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 0, Column = 1});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 2});
+
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 1});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 1, Column = 0});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 2});
+
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 2, Column = 1});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 2, Column = 0});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 2, Column = 2}); 
+
+         var scoreboard = _gameService.GetScoreboard();
+
+         Assert.Equal(0, scoreboard.PlayerXWins);
+         Assert.Equal(0, scoreboard.PlayerOWins);
+         Assert.Equal(1, scoreboard.Draws);
+     } 
+
+     [Fact]
+     public void ResetGame_ShouldNotAffectScoreboard()
+     {
+         var game = CreateGame();
+
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 0});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 0});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 1});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 1});
+         _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 2}); 
+
+         var scoreboardBeforeReset = _gameService.GetScoreboard();
+         Assert.Equal(1, scoreboardBeforeReset.PlayerXWins);
+
+         _gameService.ResetGame(game.Id);
+
+         var scoreboardAfterReset = _gameService.GetScoreboard();
+         Assert.Equal(1, scoreboardAfterReset.PlayerXWins);
+     } 
+
+     [Fact]
+    public void ResetScoreboard_ShouldClearAllScores()
+    {
+        var game = CreateGame();
+
+        _gameService.MakeMove(game.Id, new MakeMoveRequest { Player = Player.X, Row = 0, Column = 0 });
+        _gameService.MakeMove(game.Id, new MakeMoveRequest { Player = Player.O, Row = 1, Column = 0 });
+        _gameService.MakeMove(game.Id, new MakeMoveRequest { Player = Player.X, Row = 0, Column = 1 });
+        _gameService.MakeMove(game.Id, new MakeMoveRequest { Player = Player.O, Row = 1, Column = 1 });
+        _gameService.MakeMove(game.Id, new MakeMoveRequest { Player = Player.X, Row = 0, Column = 2 });
+
+        var scoreboard = _gameService.ResetScoreboard();
+
+        Assert.Equal(0, scoreboard.PlayerXWins);
+        Assert.Equal(0, scoreboard.PlayerOWins);
+        Assert.Equal(0, scoreboard.Draws);
     }
     
 }

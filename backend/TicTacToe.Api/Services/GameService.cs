@@ -7,6 +7,8 @@ namespace TicTacToe.Api.Services;
 public class GameService : IGameService
 {
     private readonly ConcurrentDictionary<Guid, GameState> _games = new ConcurrentDictionary<Guid, GameState>();
+    private readonly Scoreboard _scoreboard = new Scoreboard();
+
 
     private static readonly int[][] _winningCombinations =
     [
@@ -65,10 +67,20 @@ public class GameService : IGameService
             gameState.Status = GameStatus.Won;
             gameState.Winner = moveRequest.Player;
             gameState.WinningCombination = winningCombination;
+
+            if(moveRequest.Player == Player.X)
+            {
+                _scoreboard.PlayerXWins++;
+            }
+            else
+            {
+                _scoreboard.PlayerOWins++;
+            }
         }
         else if(gameState.Board.All(cell => cell.HasValue))
         {
             gameState.Status = GameStatus.Draw;
+            _scoreboard.Draws++;
         }
         else
         {
@@ -176,4 +188,19 @@ public class GameService : IGameService
 
         return gameState;
     }
+
+    public Scoreboard GetScoreboard()
+    {
+        return _scoreboard;
+    }
+
+    public Scoreboard ResetScoreboard()
+    {
+        _scoreboard.PlayerXWins = 0;
+        _scoreboard.PlayerOWins = 0;
+        _scoreboard.Draws = 0;
+
+        return _scoreboard;
+    }
+
 }
