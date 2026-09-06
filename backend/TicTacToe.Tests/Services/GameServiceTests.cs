@@ -279,7 +279,7 @@ public class GameServiceTests
     }
 
     [Fact]
-    public void Undo_WithNoMoves_ShouldThrowException()
+    public void UndoMove_WithNoMoves_ShouldThrowException()
     {
         var game = CreateGame();
 
@@ -483,6 +483,37 @@ public class GameServiceTests
         Assert.Equal(
             0,
             scoreboard.Draws);
+    }
+
+    [Fact]
+    public void Scoreboard_ShouldUpdateOnlyOnceForCompletedGame()
+    {
+        var game = CreateGame();
+
+        Play(game.Id, Player.X, 0, 0);
+        Play(game.Id, Player.O, 1, 0);
+        Play(game.Id, Player.X, 0, 1);
+        Play(game.Id, Player.O, 1, 1);
+
+        // X wins
+        Play(game.Id, Player.X, 0, 2);
+
+        var scoreboardAfterWin = _gameService.GetScoreboard();
+
+        Assert.Equal(1, scoreboardAfterWin.PlayerXWins);
+        Assert.Equal(0, scoreboardAfterWin.PlayerOWins);
+        Assert.Equal(0, scoreboardAfterWin.Draws);
+
+        // Further move must be rejected
+        Assert.Throws<InvalidOperationException>(() =>
+            Play(game.Id, Player.O, 2, 2));
+
+        // Scoreboard must not increment again
+        var scoreboardAfterRejectedMove = _gameService.GetScoreboard();
+
+        Assert.Equal(1, scoreboardAfterRejectedMove.PlayerXWins);
+        Assert.Equal(0, scoreboardAfterRejectedMove.PlayerOWins);
+        Assert.Equal(0, scoreboardAfterRejectedMove.Draws);
     }
 
     [Fact]
