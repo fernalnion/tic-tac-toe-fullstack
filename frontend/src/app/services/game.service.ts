@@ -1,13 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { CreateGameRequest, GameState, MakeMoveRequest, Scoreboard } from '../models/game.models';
 import { Observable } from 'rxjs';
+import { CreateGameRequest, GameState, MakeMoveRequest, Scoreboard } from '../models/game.models';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GameService {
-  private readonly apiUrl = 'http://localhost:5275/api';
+  private readonly apiUrl = environment.apiUrl;
 
   constructor(private readonly http: HttpClient) {}
 
