@@ -219,4 +219,32 @@ public class GameServiceTests
         Assert.Throws<InvalidOperationException>(()=>
         _gameService.UndoMove(game.Id));
     }   
+
+    [Fact]
+    public void ResetGame_SHouldClearBoardAndRestoreInitialState()
+    {
+        var game = CreateGame();
+
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 0});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 1});
+
+        var result = _gameService.ResetGame(game.Id);
+
+        Assert.Equal(Player.X, result.CurrentPlayer);
+        Assert.Equal(GameStatus.InProgress, result.Status);
+        Assert.Null(result.Winner);
+        Assert.All(result.Board, cell => Assert.Null(cell));
+        Assert.Empty(result.WinningCombination);
+        Assert.Empty(result.MoveHistory);
+    }
+
+    [Fact]
+    public void ResetGame_ForUnknownGame_ShouldThrowException()
+    {
+        var unknownGameId = Guid.NewGuid();
+
+        Assert.Throws<KeyNotFoundException>(()=>
+        _gameService.ResetGame(unknownGameId));
+    }
+    
 }

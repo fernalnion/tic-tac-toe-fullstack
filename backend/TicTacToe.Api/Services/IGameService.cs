@@ -11,4 +11,5 @@ public interface IGameService
     // Scoreboard GetScoreboard();
 
     GameState UndoMove(Guid gameId);
+    GameState ResetGame(Guid gameId);
 }

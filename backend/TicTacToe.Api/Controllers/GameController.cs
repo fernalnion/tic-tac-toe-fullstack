@@ -99,4 +99,23 @@ public class GameController : ControllerBase
             });
         }
     }
+
+    [HttpPost("{id:guid}/reset")]
+    [ProducesResponseType(typeof(GameState), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<GameState> ResetGame(Guid id)
+    {
+        try
+        {
+            var game = _gameService.ResetGame(id);
+            return Ok(game);
+        }
+        catch(KeyNotFoundException ex)
+        {
+            return NotFound(new
+            {
+                message = ex.Message
+            });
+        }
+    }
 }

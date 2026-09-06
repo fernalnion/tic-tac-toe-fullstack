@@ -156,4 +156,24 @@ public class GameService : IGameService
 
         return gameState;
     }
+
+    public GameState ResetGame(Guid gameId)
+    {
+        if(!_games.TryGetValue(gameId, out var gameState))
+        {
+            throw new KeyNotFoundException($"Game with ID {gameId} not found.");
+        }
+
+        // Clear the board and move history
+        Array.Clear(gameState.Board);
+        gameState.MoveHistory.Clear();
+        gameState.WinningCombination.Clear();
+
+        // Reset the current player and status
+        gameState.CurrentPlayer = Player.X;
+        gameState.Status = GameStatus.InProgress;
+        gameState.Winner = null;
+
+        return gameState;
+    }
 }
