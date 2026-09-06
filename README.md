@@ -19,14 +19,14 @@ The application supports **Player vs Player** and **Player vs Computer** modes. 
 - Undo
 - Reset Game
 - Play Again
-- Scoreboard
+- Session-level scoreboard
 - Reset Scoreboard
 
 ### Player vs Computer
 
 The human plays as **X** and the computer plays as **O**.
 
-The computer follows a simple move priority:
+The computer follows this move priority:
 
 1. Win if a winning move is available
 2. Block Player X from winning
@@ -36,11 +36,23 @@ The computer follows a simple move priority:
 
 ### Undo Behaviour
 
-In **Player vs Player** mode, Undo removes the most recent move and restores that player's turn.
+This implementation uses **Option A: Disable Undo After Completion**.
 
-In **Player vs Computer** mode, Undo removes both the computer's latest move and the human move immediately before it.
+In **Player vs Player** mode, Undo removes the most recent move and restores the turn to the player whose move was removed.
 
-Undo is disabled after the game has completed.
+In **Player vs Computer** mode, Undo removes both the computer's latest move and the human move immediately before it, returning the game to the human player's turn.
+
+Once a game is won or drawn, Undo is disabled and the scoreboard result remains final for that game.
+
+### Reset Game Behaviour
+
+Reset Game creates a fresh game state while preserving:
+
+- The existing game ID
+- The selected game mode
+- The session-level scoreboard
+
+The board, move history, winner and winning combination are cleared. The game status returns to `InProgress` and Player X starts again.
 
 ## Tech Stack
 
@@ -68,7 +80,7 @@ Undo is disabled after the game has completed.
 
 ## Architecture
 
-The application uses a simple client-server architecture:
+The application follows a simple client-server architecture:
 
 ```text
 Angular Frontend
@@ -95,7 +107,7 @@ In-Memory Storage
 
 The backend is the source of truth for the game.
 
-Game rules such as move validation, turn switching, win detection, draw detection and computer moves are handled by the backend. The frontend sends player actions to the API and renders the returned game state.
+Game rules such as move validation, turn switching, win detection, draw detection, Undo behaviour and computer moves are handled by the backend. The frontend sends player actions to the API and renders the returned game state.
 
 ## Project Structure
 
@@ -155,7 +167,7 @@ git clone https://github.com/fernalnion/tic-tac-toe-fullstack.git
 cd tic-tac-toe-fullstack
 ```
 
-### Run the Backend
+## Run the Backend
 
 From the repository root:
 
@@ -177,7 +189,7 @@ Swagger API documentation is available at:
 http://localhost:5275/docs
 ```
 
-### Run the Frontend
+## Run the Frontend
 
 Open another terminal from the repository root:
 
@@ -195,14 +207,16 @@ http://localhost:4200
 
 > The backend must be running before starting a game.
 
-### Run Backend Tests
+## Run Backend Tests
+
+From the repository root:
 
 ```bash
 cd backend
 dotnet test TicTacToe.slnx
 ```
 
-### Build the Frontend
+## Build the Frontend
 
 ```bash
 cd frontend
@@ -219,7 +233,7 @@ npm run build
 POST /api/games
 ```
 
-Example:
+Example request:
 
 ```json
 {
@@ -234,7 +248,7 @@ PlayerVsPlayer
 PlayerVsComputer
 ```
 
-#### Get Game
+#### Get Game State
 
 ```http
 GET /api/games/{gameId}
@@ -246,7 +260,7 @@ GET /api/games/{gameId}
 POST /api/games/{gameId}/moves
 ```
 
-Example:
+Example request:
 
 ```json
 {
@@ -270,6 +284,8 @@ POST /api/games/{gameId}/undo
 POST /api/games/{gameId}/reset
 ```
 
+Reset creates a fresh game state while preserving the existing game ID, selected mode and session scoreboard.
+
 ### Scoreboard
 
 #### Get Scoreboard
@@ -288,7 +304,7 @@ Example response:
 }
 ```
 
-In Player vs Computer mode, Player O represents the computer.
+In **Player vs Computer** mode, Player O represents the computer.
 
 #### Reset Scoreboard
 
@@ -298,28 +314,35 @@ POST /api/scoreboard/reset
 
 ## Testing
 
-The backend test suite covers the main game rules and edge cases, including:
+The backend test suite covers the main game rules, state transitions and edge cases, including:
 
 - Initial game state
-- Valid moves
+- Valid move placement
 - Turn switching
 - Occupied cell validation
-- Wrong player validation
+- Wrong-player validation
 - Invalid board positions
-- Row wins
-- Column wins
-- Diagonal wins
+- Row win detection
+- Column win detection
+- Diagonal win detection
 - Draw detection
-- Moves after game completion
-- Player vs Player undo
-- Player vs Computer undo
-- Game reset
+- Prevention of moves after game completion
+- Player vs Player Undo
+- Player vs Computer Undo
+- Undo with no moves
+- Undo after game completion
+- Fresh game state after Reset Game
+- Scoreboard preservation after Reset Game
 - Scoreboard updates
 - Scoreboard reset
-- Computer automatic moves
-- Computer blocking behaviour
+- Automatic computer moves
+- Computer taking the center when available
+- Computer taking an available corner
+- Computer blocking an immediate Player X win
+- Computer taking a winning move when available
+- Prevention of manual Player O moves in computer mode
 
-Run the complete test suite with:
+Run the complete backend test suite with:
 
 ```bash
 cd backend
@@ -332,19 +355,21 @@ dotnet test TicTacToe.slnx
 
 Game rules are handled by the backend rather than duplicated in Angular.
 
-This keeps validation and state transitions in one place and ensures the state returned by the API is authoritative.
+This keeps validation and state transitions in one place and ensures that the game state returned by the API is authoritative.
 
 ### REST Instead of WebSockets
 
-REST is sufficient for the current requirements because game actions originate from the local client.
+REST is sufficient for the current scope because game actions originate from the local client and each action receives the updated state in the API response.
 
-WebSockets or SignalR would be more useful for remote multiplayer, where moves need to be pushed to another connected player in real time.
+SignalR or WebSockets would be more appropriate for remote multiplayer, where moves need to be pushed to another connected player in real time.
 
 ### In-Memory Storage
 
 The exercise does not require persistent storage, so game sessions and scoreboard data are stored in memory.
 
-This keeps the application simple to run without requiring a database. The trade-off is that restarting the backend clears the current games and scoreboard.
+This keeps the application simple to set up and run without requiring a database.
+
+The trade-off is that restarting the backend clears all game sessions and scoreboard data.
 
 ### Board Representation
 
@@ -364,44 +389,66 @@ A row and column are converted to a board index using:
 index = row * 3 + column
 ```
 
-This flat representation keeps board rendering and winning-combination checks straightforward.
+The flat representation keeps move handling and winning-combination checks straightforward.
 
 ### Computer Strategy
 
-The computer uses a simple deterministic strategy rather than Minimax.
-
-Its priority is:
+The computer uses a deterministic rule-based strategy:
 
 ```text
-Win -> Block -> Center -> Corner -> Available Cell
+Win -> Block -> Center -> Corner -> Any Available Cell
 ```
 
-This keeps the implementation simple while ensuring the computer always makes a valid move and blocks immediate winning opportunities.
+The strategy intentionally remains simple for the scope of the exercise while ensuring that the computer:
+
+- Makes only valid moves
+- Takes an immediate winning opportunity
+- Blocks an immediate Player X win
+- Uses a predictable fallback strategy
+
+### Undo Strategy
+
+The implementation follows **Option A: Disable Undo After Completion**.
+
+This keeps completed game results final and avoids changing scoreboard values after a win or draw has already been recorded.
+
+In Player vs Computer mode, the human move and corresponding computer move are treated as one Undo cycle.
+
+### Reset Strategy
+
+Reset Game creates a new `GameState` for the existing game resource.
+
+The game ID and selected mode are preserved, while the board, history and completion state are cleared.
+
+The session-level scoreboard is intentionally unaffected by resetting an individual game.
 
 ### Angular Signals
 
-Angular Signals are used for local UI state including:
+Angular Signals are used for local UI state such as:
 
 - Current game
 - Scoreboard
-- Selected game mode
+- Selected mode
 - Loading state
 - Error messages
 
-Computed signals are used for derived state such as the game status text and Undo availability.
+Computed signals are used for derived values such as the game status text and Undo availability.
 
 A larger state-management library was not necessary for the scope of this application.
 
-## Assumptions
+## Assumptions and Clarifications
 
 - Player X always starts.
 - The human is Player X in Player vs Computer mode.
 - The computer is Player O.
-- Undo is disabled after game completion.
-- Reset Game keeps the scoreboard unchanged.
-- Reset Scoreboard clears all scoreboard values.
-- Game and scoreboard state are maintained for the current backend session.
+- Player O wins therefore represent computer wins in Player vs Computer mode.
+- Undo uses Option A and is disabled after game completion.
+- Reset Game preserves the existing game ID and selected mode.
+- Reset Game does not change the scoreboard.
+- Reset Scoreboard explicitly clears all scoreboard values.
+- The scoreboard is maintained at the backend session level.
 - Persistent storage is not required.
+- Game and scoreboard state are lost when the backend restarts.
 
 ## Error Handling
 
@@ -409,23 +456,60 @@ The backend validates cases including:
 
 - Game not found
 - Wrong player's turn
-- Invalid row or column
+- Invalid row
+- Invalid column
 - Occupied cell
 - Move after game completion
 - Invalid Undo operation
+- Manual Player O move in Player vs Computer mode
 
 Errors returned by the API are displayed by the frontend.
 
+## AI Tools and Prompt Summary
+
+AI tools were used selectively as a supporting development aid during the exercise.
+
+The main areas where AI assistance was used were:
+
+- Requirement review
+- Test-case brainstorming
+- Troubleshooting specific build and integration issues
+- Reviewing API and frontend implementation choices
+- Documentation review
+
+Example prompts used during development included:
+
+- "Review the proposed Angular and .NET architecture against the assessment requirements and identify any gaps."
+- "Review the Tic Tac Toe game rules and suggest additional edge cases to test."
+- "Review the Undo behaviour for Player vs Player and Player vs Computer modes."
+- "Help diagnose this failing xUnit test based on the error output."
+- "Review the REST API endpoints against the stated requirements."
+- "Review the README against the submission checklist and identify anything missing."
+
+AI suggestions were reviewed before being applied. The game logic, API integration, computer-move behaviour, Undo behaviour and scoreboard interactions were manually verified through automated tests and browser testing.
+
+Implementation choices were adjusted where needed to keep the solution aligned with the assessment requirements and intentionally simple for the scope of the exercise.
+
 ## Known Limitations
 
-- Game state is lost when the backend restarts.
-- Scoreboard state is lost when the backend restarts.
+- Game state is stored only in memory.
+- Scoreboard state is stored only in memory.
+- Restarting the backend clears the current sessions and scoreboard.
 - No database persistence.
 - No remote multiplayer.
 - No authentication or player accounts.
-- The computer uses a simple rule-based strategy rather than Minimax.
-- Concurrent updates to the same individual game are not explicitly synchronized at the game-object level.
+- The computer uses a rule-based strategy rather than Minimax.
 
-## Development Note
+## Future Improvements
 
-AI tools were used selectively for troubleshooting and documentation support. The solution was implemented, reviewed and tested before submission.
+Possible improvements include:
+
+- Persistent storage using PostgreSQL or SQLite
+- Remote multiplayer using SignalR
+- Minimax-based computer opponent
+- Per-game concurrency handling
+- Centralized API exception-handling middleware
+- API integration tests
+- Additional Angular component tests
+- Docker support
+- CI/CD pipeline
