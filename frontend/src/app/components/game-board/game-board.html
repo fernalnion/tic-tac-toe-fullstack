@@ -1,0 +1,130 @@
+<div class="page">
+  <main class="game-card">
+    <header class="header">
+      <p class="eyebrow">Full Stack Coding Exercise</p>
+      <h1>Tic Tac Toe</h1>
+      <p class="subtitle">Angular + ASP.NET Core</p>
+    </header>
+
+    <section class="mode-selector">
+      <button
+        type="button"
+        [class.active]="selectedMode() === 'PlayerVsPlayer'"
+        [disabled]="isLoading()"
+        (click)="startNewGame('PlayerVsPlayer')"
+      >
+        Player vs Player
+      </button>
+
+      <button
+        type="button"
+        [class.active]="selectedMode() === 'PlayerVsComputer'"
+        [disabled]="isLoading()"
+        (click)="startNewGame('PlayerVsComputer')"
+      >
+        Player vs Computer
+      </button>
+    </section>
+
+    <section class="scoreboard">
+      <div class="score">
+        <strong>{{ scoreboard().playerXWins }}</strong>
+        <span>X Wins</span>
+      </div>
+
+      <div class="score">
+        <strong>{{ scoreboard().playerOWins }}</strong>
+        <span>O Wins</span>
+      </div>
+
+      <div class="score">
+        <strong>{{ scoreboard().draws }}</strong>
+        <span>Draws</span>
+      </div>
+    </section>
+
+    @if (game(); as currentGame) {
+      <section class="status">
+        <div class="result-message">
+          {{ statusText() }}
+        </div>
+
+        @if (currentGame.status !== 'InProgress') {
+          <button type="button" class="play-again" (click)="resetGame()" [disabled]="isLoading()">
+            Play Again
+          </button>
+        }
+      </section>
+
+      @if (errorMessage()) {
+        <div class="error-message">
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <section class="board" aria-label="Tic Tac Toe board">
+        @for (cell of currentGame.board; track $index; let i = $index) {
+          <button
+            type="button"
+            class="cell"
+            [class.x-cell]="cell === 'X'"
+            [class.o-cell]="cell === 'O'"
+            [class.winning]="isWinningCell(i)"
+            [disabled]="cell !== null || currentGame.status !== 'InProgress' || isLoading()"
+            [attr.aria-label]="'Row ' + getRow(i) + ', Column ' + getColumn(i)"
+            (click)="selectCell(i)"
+          >
+            {{ cell }}
+          </button>
+        }
+      </section>
+
+      <section class="controls">
+        <button type="button" (click)="undoMove()" [disabled]="!canUndo() || isLoading()">
+          Undo Last Move
+        </button>
+
+        <button type="button" (click)="resetGame()" [disabled]="isLoading()">Reset Game</button>
+
+        <button
+          type="button"
+          class="secondary"
+          (click)="resetScoreboard()"
+          [disabled]="isLoading()"
+        >
+          Reset Scoreboard
+        </button>
+      </section>
+
+      <section class="history">
+        <h2>Move History</h2>
+
+        @if (currentGame.moveHistory.length === 0) {
+          <p class="empty-state">No moves yet.</p>
+        } @else {
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Move</th>
+                  <th>Player</th>
+                  <th>Position</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                @for (move of currentGame.moveHistory; track move.moveNumber) {
+                  <tr>
+                    <td>{{ move.moveNumber }}</td>
+                    <td>{{ move.player }}</td>
+                    <td>Row {{ move.row + 1 }}, Column {{ move.column + 1 }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  </main>
+</div>
