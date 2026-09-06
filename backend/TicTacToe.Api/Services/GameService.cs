@@ -30,8 +30,8 @@ public class GameService : IGameService
         var game = new GameState
         {
             Mode = request.Mode,
-            Status = GameStatus.InProgress,
-            CurrentPlayer = Player.X
+            CurrentPlayer = Player.X,
+            Status = GameStatus.InProgress
         };
 
         _games[game.Id] = game;
@@ -64,6 +64,8 @@ public class GameService : IGameService
             moveRequest.Row,
             moveRequest.Column);
 
+        // If the human/user move completes the game,
+        // do not switch turn or allow a computer move.
         if (CompleteGameStateIfRequired(
             gameState,
             moveRequest.Player))
@@ -76,6 +78,8 @@ public class GameService : IGameService
                 ? Player.O
                 : Player.X;
 
+        // In computer mode the backend automatically
+        // performs Player O's move.
         if (gameState.Mode == GameMode.PlayerVsComputer)
         {
             MakeComputerMove(gameState);
@@ -91,20 +95,20 @@ public class GameService : IGameService
         if (gameState.Status != GameStatus.InProgress)
         {
             throw new InvalidOperationException(
-                "Game already finished.");
+                "Game is already completed.");
         }
 
         if (gameState.Mode == GameMode.PlayerVsComputer &&
             moveRequest.Player != Player.X)
         {
             throw new InvalidOperationException(
-                "Only Player X can make moves in computer mode.");
+                "Only Player X can submit moves in computer mode.");
         }
 
         if (moveRequest.Player != gameState.CurrentPlayer)
         {
             throw new InvalidOperationException(
-                $"It is {gameState.CurrentPlayer}'s turn.");
+                $"It is Player {gameState.CurrentPlayer}'s turn.");
         }
 
         if (moveRequest.Row < 0 || moveRequest.Row > 2)
@@ -127,7 +131,7 @@ public class GameService : IGameService
         if (gameState.Board[cellIndex].HasValue)
         {
             throw new InvalidOperationException(
-                "Cell is already occupied.");
+                "The selected cell is already occupied.");
         }
     }
 
@@ -179,6 +183,7 @@ public class GameService : IGameService
         {
             gameState.Status = GameStatus.Draw;
             gameState.Winner = null;
+            gameState.WinningCombination.Clear();
 
             _scoreboard.Draws++;
 
@@ -219,35 +224,35 @@ public class GameService : IGameService
     private static int GetBestComputerMove(
         GameState gameState)
     {
-        // Priority 1:
-        // Win if O has an immediate winning move.
+        // Priority 1: Win if possible.
         var winningMove =
-            FindWinningMove(gameState.Board, Player.O);
+            FindWinningMove(
+                gameState.Board,
+                Player.O);
 
         if (winningMove.HasValue)
         {
             return winningMove.Value;
         }
 
-        // Priority 2:
-        // Block X if X can win on the next move.
+        // Priority 2: Block Player X.
         var blockingMove =
-            FindWinningMove(gameState.Board, Player.X);
+            FindWinningMove(
+                gameState.Board,
+                Player.X);
 
         if (blockingMove.HasValue)
         {
             return blockingMove.Value;
         }
 
-        // Priority 3:
-        // Take center.
+        // Priority 3: Take center.
         if (!gameState.Board[4].HasValue)
         {
             return 4;
         }
 
-        // Priority 4:
-        // Take an available corner.
+        // Priority 4: Take an available corner.
         foreach (var corner in Corners)
         {
             if (!gameState.Board[corner].HasValue)
@@ -256,8 +261,7 @@ public class GameService : IGameService
             }
         }
 
-        // Priority 5:
-        // Take any available cell.
+        // Priority 5: Take any remaining cell.
         for (var i = 0; i < gameState.Board.Length; i++)
         {
             if (!gameState.Board[i].HasValue)
@@ -317,7 +321,8 @@ public class GameService : IGameService
         return false;
     }
 
-    private static bool IsBoardFull(GameState gameState)
+    private static bool IsBoardFull(
+        GameState gameState)
     {
         return gameState.Board.All(
             cell => cell.HasValue);
@@ -331,24 +336,26 @@ public class GameService : IGameService
                 $"Game with ID {gameId} not found.");
         }
 
+        // Option A from the assessment:
+        // Undo is disabled after completion.
         if (gameState.Status != GameStatus.InProgress)
         {
             throw new InvalidOperationException(
-                "Cannot undo move. Game is already finished.");
+                "Undo is not allowed after the game is completed.");
         }
 
         if (gameState.MoveHistory.Count == 0)
         {
             throw new InvalidOperationException(
-                "No moves to undo.");
+                "There are no moves to undo.");
         }
 
         if (gameState.Mode == GameMode.PlayerVsComputer)
         {
             /*
-             * Requirement:
-             * Undo the computer's O move and the human's
-             * previous X move together.
+             * Computer mode:
+             * remove the computer's previous O move and
+             * the human's previous X move together.
              */
 
             var movesToUndo =
@@ -367,8 +374,8 @@ public class GameService : IGameService
         {
             /*
              * Player-vs-player:
-             * remove exactly one move and give the
-             * turn back to the player whose move
+             * remove exactly one move and return
+             * the turn to the player whose move
              * was removed.
              */
 
@@ -406,22 +413,33 @@ public class GameService : IGameService
 
     public GameState ResetGame(Guid gameId)
     {
-        if (!_games.TryGetValue(gameId, out var gameState))
+        if (!_games.TryGetValue(
+            gameId,
+            out var existingGame))
         {
             throw new KeyNotFoundException(
                 $"Game with ID {gameId} not found.");
         }
 
-        Array.Clear(gameState.Board);
+        /*
+         * Create a fresh game state while preserving:
+         * - Existing game resource ID
+         * - Selected game mode
+         * - Session-level scoreboard
+         */
 
-        gameState.MoveHistory.Clear();
-        gameState.WinningCombination.Clear();
+        var resetGame = new GameState
+        {
+            Id = existingGame.Id,
+            Mode = existingGame.Mode,
+            CurrentPlayer = Player.X,
+            Status = GameStatus.InProgress,
+            Winner = null
+        };
 
-        gameState.CurrentPlayer = Player.X;
-        gameState.Status = GameStatus.InProgress;
-        gameState.Winner = null;
+        _games[gameId] = resetGame;
 
-        return gameState;
+        return resetGame;
     }
 
     public Scoreboard GetScoreboard()
