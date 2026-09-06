@@ -15,8 +15,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSingleton<IGameService, GameService>();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>{
-        policy.WithOrigins("http://localhost:4200")
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:4200",
+                "http://127.0.0.1:4200")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -38,6 +41,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
-app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();
