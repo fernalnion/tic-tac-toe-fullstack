@@ -1,10 +1,9 @@
-import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { finalize } from 'rxjs';
 import { GameMode, GameState, Player, Scoreboard } from '../../models/game.models';
 import { GameService } from '../../services/game.service';
 
 @Component({
-  imports: [CommonModule],
   standalone: true,
   selector: 'app-game-board',
   styleUrl: './game-board.scss',
@@ -87,16 +86,19 @@ export class GameBoard implements OnInit {
     const row = Math.floor(index / 3);
     const column = index % 3;
 
-    this.gameService.makeMove(game.id, { player, row, column }).subscribe({
-      next: (updatedGame) => {
-        this.game.set(updatedGame);
-        this.isLoading.set(false);
-      },
-      error: (error) => {
-        this.handleError(error);
-        this.isLoading.set(false);
-      },
-    });
+    this.gameService
+      .makeMove(game.id, { player, row, column })
+      .pipe(finalize(() => this.isLoading.set(false)))
+      .subscribe({
+        next: (updatedGame) => {
+          this.game.set(updatedGame);
+          // Refresh scoreboard immediately
+          this.loadScoreboard();
+        },
+        error: (error) => {
+          this.handleError(error);
+        },
+      });
   }
 
   undoMove(): void {
@@ -163,23 +165,24 @@ export class GameBoard implements OnInit {
   }
 
   private loadScoreboard(): void {
-    this.isLoading.set(true);
-
     this.gameService.getScoreboard().subscribe({
       next: (scoreboard) => {
         this.scoreboard.set(scoreboard);
-        this.isLoading.set(false);
       },
       error: (error) => {
         this.handleError(error);
-        this.isLoading.set(false);
       },
     });
   }
 
-  private handleError(error: any): void {
-    const errorMessage = error?.error?.message || 'An unexpected error occurred.';
-    this.errorMessage.set(errorMessage);
+  private handleError(error: unknown): void {
+    const apiError = error as {
+      error?: {
+        message?: string;
+      };
+    };
+
+    this.errorMessage.set(apiError?.error?.message ?? 'An unexpected error occurred.');
   }
 
   getRow(index: number): number {

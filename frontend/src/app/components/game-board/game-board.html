@@ -3,7 +3,6 @@
     <header class="header">
       <p class="eyebrow">Full Stack Coding Exercise</p>
       <h1>Tic Tac Toe</h1>
-      <p class="subtitle">Angular + ASP.NET Core</p>
     </header>
 
     <section class="mode-selector">
@@ -34,7 +33,9 @@
 
       <div class="score">
         <strong>{{ scoreboard().playerOWins }}</strong>
-        <span>O Wins</span>
+        <span>
+          {{ selectedMode() === 'PlayerVsComputer' ? 'Computer Wins' : 'O Wins' }}
+        </span>
       </div>
 
       <div class="score">

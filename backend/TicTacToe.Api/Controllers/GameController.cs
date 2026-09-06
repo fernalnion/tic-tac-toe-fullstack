@@ -36,8 +36,9 @@ public class GameController : ControllerBase
         var game = _gameService.GetGameState(id);
         if(game is null)
         {
-            return NotFound(new {
-                message = $"Game with ID {id} not found."
+            return NotFound(new ErrorResponse
+            {
+                Message = $"Game with ID {id} not found."
             });
         }
 
@@ -55,21 +56,21 @@ public class GameController : ControllerBase
             return Ok(game);
         }catch(KeyNotFoundException ex)
         {
-            return NotFound(new
+            return NotFound(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }catch(ArgumentOutOfRangeException ex)
         {
-            return BadRequest(new
+            return BadRequest(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }catch(InvalidOperationException ex)
         {
-            return BadRequest(new
+            return BadRequest(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }
     }
@@ -87,15 +88,15 @@ public class GameController : ControllerBase
         }
         catch(KeyNotFoundException ex)
         {
-            return NotFound(new
+            return NotFound(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }catch(InvalidOperationException ex)
         {
-            return BadRequest(new
+            return BadRequest(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }
     }
@@ -112,9 +113,9 @@ public class GameController : ControllerBase
         }
         catch(KeyNotFoundException ex)
         {
-            return NotFound(new
+            return NotFound(new ErrorResponse
             {
-                message = ex.Message
+                Message = ex.Message
             });
         }
     }
