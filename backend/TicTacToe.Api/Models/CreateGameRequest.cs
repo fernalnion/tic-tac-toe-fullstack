@@ -4,5 +4,5 @@ namespace TicTacToe.Api.Models;
 
 public class CreateGameRequest
 {
-    public GameMode GameMode { get; set; }
+    public GameMode Mode { get; set; }
 }
