@@ -193,5 +193,30 @@ public class GameServiceTests
             Row = 2,
             Column = 2
         }));
-    }       
+    }  
+
+    [Fact]
+    public void UndoMove_ShouldRemoveLastMoveAndRestorePreviousState()
+    {
+        var game = CreateGame();
+
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.X, Row = 0, Column = 0});
+        _gameService.MakeMove(game.Id, new MakeMoveRequest {Player = Player.O, Row = 1, Column = 1});
+
+        var result = _gameService.UndoMove(game.Id);
+
+        Assert.Equal(Player.X, result.CurrentPlayer);
+        Assert.Null(result.Board[1 * 3 + 1]); // Cell (1,1) should be empty
+        Assert.Single(result.MoveHistory); // Only one move should remain
+        Assert.Equal(Player.X, result.MoveHistory[0].Player);
+    }  
+
+    [Fact]
+    public void Undo_WithNoMoves_ShouldThrowException()
+    {
+        var game = CreateGame();
+
+        Assert.Throws<InvalidOperationException>(()=>
+        _gameService.UndoMove(game.Id));
+    }   
 }

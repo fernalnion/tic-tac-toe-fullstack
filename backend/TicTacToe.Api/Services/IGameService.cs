@@ -9,4 +9,6 @@ public interface IGameService
     GameState? GetGameState(Guid gameId);
     GameState MakeMove(Guid gameId, MakeMoveRequest moveRequest);
     // Scoreboard GetScoreboard();
+
+    GameState UndoMove(Guid gameId);
 }

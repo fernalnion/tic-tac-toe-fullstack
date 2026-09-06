@@ -69,7 +69,33 @@ public class GameController : ControllerBase
         {
             return BadRequest(new
             {
-                Message = ex.Message
+                message = ex.Message
+            });
+        }
+    }
+
+    [HttpPost("{id:guid}/undo")]
+    [ProducesResponseType(typeof(GameState), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<GameState> UndoMove(Guid id)
+    {
+        try
+        {
+            var game = _gameService.UndoMove(id);
+            return Ok(game);
+        }
+        catch(KeyNotFoundException ex)
+        {
+            return NotFound(new
+            {
+                message = ex.Message
+            });
+        }catch(InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
             });
         }
     }

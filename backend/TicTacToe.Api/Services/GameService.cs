@@ -125,4 +125,35 @@ public class GameService : IGameService
         winningCombination = new List<int>();
         return false;
     }
+
+
+    public GameState UndoMove(Guid gameId)
+    {
+        if(!_games.TryGetValue(gameId, out var gameState))
+        {
+            throw new KeyNotFoundException($"Game with ID {gameId} not found.");
+        }
+
+        if(gameState.Status != GameStatus.InProgress)
+        {
+            throw new InvalidOperationException("Cannot undo move. Game is already finished.");
+        }
+
+        if(gameState.MoveHistory.Count == 0)
+        {
+            throw new InvalidOperationException("No moves to undo.");
+        }
+
+        var lastMove = gameState.MoveHistory[^1];
+        var index = lastMove.Row * 3 + lastMove.Column;
+        gameState.Board[index] = null;
+        gameState.MoveHistory.RemoveAt(gameState.MoveHistory.Count - 1);
+        gameState.CurrentPlayer = lastMove.Player;
+
+        gameState.Winner = null;
+        gameState.WinningCombination.Clear();
+        gameState.Status = GameStatus.InProgress;
+
+        return gameState;
+    }
 }
