@@ -6,11 +6,10 @@ namespace TicTacToe.Api.Services;
 
 public class GameService : IGameService
 {
-    private readonly ConcurrentDictionary<Guid, GameState> _games = new ConcurrentDictionary<Guid, GameState>();
-    private readonly Scoreboard _scoreboard = new Scoreboard();
+    private readonly ConcurrentDictionary<Guid, GameState> _games = new();
+    private readonly Scoreboard _scoreboard = new();
 
-
-    private static readonly int[][] _winningCombinations =
+    private static readonly int[][] WinningCombinations =
     [
         [0, 1, 2],
         [3, 4, 5],
@@ -24,83 +23,89 @@ public class GameService : IGameService
         [2, 4, 6]
     ];
 
+    private static readonly int[] Corners = [0, 2, 6, 8];
+
     public GameState CreateGame(CreateGameRequest request)
     {
         var game = new GameState
         {
             Mode = request.Mode,
             Status = GameStatus.InProgress,
-            CurrentPlayer = Player.X,
+            CurrentPlayer = Player.X
         };
 
         _games[game.Id] = game;
+
         return game;
     }
 
     public GameState? GetGameState(Guid gameId)
     {
         _games.TryGetValue(gameId, out var gameState);
+
         return gameState;
     }
 
-    public GameState MakeMove(Guid gameId, MakeMoveRequest moveRequest)
+    public GameState MakeMove(
+        Guid gameId,
+        MakeMoveRequest moveRequest)
     {
-        if(!_games.TryGetValue(gameId, out var gameState))
+        if (!_games.TryGetValue(gameId, out var gameState))
         {
-            throw new KeyNotFoundException($"Game with ID {gameId} not found.");
+            throw new KeyNotFoundException(
+                $"Game with ID {gameId} not found.");
         }
 
         ValidateMove(gameState, moveRequest);
 
-        var index = moveRequest.Row * 3 + moveRequest.Column;
-        gameState.Board[index] = moveRequest.Player;
+        ApplyMove(
+            gameState,
+            moveRequest.Player,
+            moveRequest.Row,
+            moveRequest.Column);
 
-        gameState.MoveHistory.Add(new Move{
-            MoveNumber = gameState.MoveHistory.Count + 1,
-            Player = moveRequest.Player,
-            Row = moveRequest.Row,
-            Column = moveRequest.Column
-        });
-
-        if(TryGetWinningCombination(gameState.Board, moveRequest.Player, out var winningCombination))
+        if (CompleteGameStateIfRequired(
+            gameState,
+            moveRequest.Player))
         {
-            gameState.Status = GameStatus.Won;
-            gameState.Winner = moveRequest.Player;
-            gameState.WinningCombination = winningCombination;
-
-            if(moveRequest.Player == Player.X)
-            {
-                _scoreboard.PlayerXWins++;
-            }
-            else
-            {
-                _scoreboard.PlayerOWins++;
-            }
+            return gameState;
         }
-        else if(gameState.Board.All(cell => cell.HasValue))
+
+        gameState.CurrentPlayer =
+            moveRequest.Player == Player.X
+                ? Player.O
+                : Player.X;
+
+        if (gameState.Mode == GameMode.PlayerVsComputer)
         {
-            gameState.Status = GameStatus.Draw;
-            _scoreboard.Draws++;
-        }
-        else
-        {
-            gameState.CurrentPlayer = moveRequest.Player == Player.X ? Player.O : Player.X;
+            MakeComputerMove(gameState);
         }
 
         return gameState;
     }
 
-    private static void ValidateMove(GameState gameState, MakeMoveRequest moveRequest)
+    private static void ValidateMove(
+        GameState gameState,
+        MakeMoveRequest moveRequest)
     {
-        if(gameState.Status != GameStatus.InProgress)
+        if (gameState.Status != GameStatus.InProgress)
         {
-            throw new InvalidOperationException("Game already finished.");
+            throw new InvalidOperationException(
+                "Game already finished.");
         }
 
-        if(moveRequest.Player != gameState.CurrentPlayer)
+        if (gameState.Mode == GameMode.PlayerVsComputer &&
+            moveRequest.Player != Player.X)
         {
-            throw new InvalidOperationException($"It is {gameState.CurrentPlayer}'s turn.");
-        }   
+            throw new InvalidOperationException(
+                "Only Player X can make moves in computer mode.");
+        }
+
+        if (moveRequest.Player != gameState.CurrentPlayer)
+        {
+            throw new InvalidOperationException(
+                $"It is {gameState.CurrentPlayer}'s turn.");
+        }
 
         if (moveRequest.Row < 0 || moveRequest.Row > 2)
         {
@@ -116,72 +121,302 @@ public class GameService : IGameService
                 "Column must be between 0 and 2.");
         }
 
-        var cellIndex = moveRequest.Row * 3 + moveRequest.Column;
+        var cellIndex =
+            moveRequest.Row * 3 + moveRequest.Column;
 
-        if(gameState.Board[cellIndex].HasValue)
+        if (gameState.Board[cellIndex].HasValue)
         {
-            throw new InvalidOperationException("Cell is already occupied.");
+            throw new InvalidOperationException(
+                "Cell is already occupied.");
         }
     }
 
-    private static bool TryGetWinningCombination(Player?[] board, Player player, out List<int> winningCombination)
+    private static void ApplyMove(
+        GameState gameState,
+        Player player,
+        int row,
+        int column)
     {
-        foreach(var combination in _winningCombinations)
+        var cellIndex = row * 3 + column;
+
+        gameState.Board[cellIndex] = player;
+
+        gameState.MoveHistory.Add(new Move
         {
-            if(combination.All(index => board[index] == player))
+            MoveNumber = gameState.MoveHistory.Count + 1,
+            Player = player,
+            Row = row,
+            Column = column
+        });
+    }
+
+    private bool CompleteGameStateIfRequired(
+        GameState gameState,
+        Player player)
+    {
+        if (TryGetWinningCombination(
+            gameState.Board,
+            player,
+            out var winningCombination))
+        {
+            gameState.Status = GameStatus.Won;
+            gameState.Winner = player;
+            gameState.WinningCombination = winningCombination;
+
+            if (player == Player.X)
             {
-                winningCombination = combination.ToList();
-                return true;
+                _scoreboard.PlayerXWins++;
             }
+            else
+            {
+                _scoreboard.PlayerOWins++;
+            }
+
+            return true;
         }
-        winningCombination = new List<int>();
+
+        if (IsBoardFull(gameState))
+        {
+            gameState.Status = GameStatus.Draw;
+            gameState.Winner = null;
+
+            _scoreboard.Draws++;
+
+            return true;
+        }
+
         return false;
     }
 
+    private void MakeComputerMove(GameState gameState)
+    {
+        if (gameState.Status != GameStatus.InProgress)
+        {
+            return;
+        }
+
+        var cellIndex = GetBestComputerMove(gameState);
+
+        var row = cellIndex / 3;
+        var column = cellIndex % 3;
+
+        ApplyMove(
+            gameState,
+            Player.O,
+            row,
+            column);
+
+        if (CompleteGameStateIfRequired(
+            gameState,
+            Player.O))
+        {
+            return;
+        }
+
+        gameState.CurrentPlayer = Player.X;
+    }
+
+    private static int GetBestComputerMove(
+        GameState gameState)
+    {
+        // Priority 1:
+        // Win if O has an immediate winning move.
+        var winningMove =
+            FindWinningMove(gameState.Board, Player.O);
+
+        if (winningMove.HasValue)
+        {
+            return winningMove.Value;
+        }
+
+        // Priority 2:
+        // Block X if X can win on the next move.
+        var blockingMove =
+            FindWinningMove(gameState.Board, Player.X);
+
+        if (blockingMove.HasValue)
+        {
+            return blockingMove.Value;
+        }
+
+        // Priority 3:
+        // Take center.
+        if (!gameState.Board[4].HasValue)
+        {
+            return 4;
+        }
+
+        // Priority 4:
+        // Take an available corner.
+        foreach (var corner in Corners)
+        {
+            if (!gameState.Board[corner].HasValue)
+            {
+                return corner;
+            }
+        }
+
+        // Priority 5:
+        // Take any available cell.
+        for (var i = 0; i < gameState.Board.Length; i++)
+        {
+            if (!gameState.Board[i].HasValue)
+            {
+                return i;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "No valid computer move is available.");
+    }
+
+    private static int? FindWinningMove(
+        Player?[] board,
+        Player player)
+    {
+        foreach (var combination in WinningCombinations)
+        {
+            var playerCells =
+                combination.Count(
+                    index => board[index] == player);
+
+            var emptyCells =
+                combination
+                    .Where(index => !board[index].HasValue)
+                    .ToList();
+
+            if (playerCells == 2 &&
+                emptyCells.Count == 1)
+            {
+                return emptyCells[0];
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryGetWinningCombination(
+        Player?[] board,
+        Player player,
+        out List<int> winningCombination)
+    {
+        foreach (var combination in WinningCombinations)
+        {
+            if (combination.All(
+                index => board[index] == player))
+            {
+                winningCombination =
+                    combination.ToList();
+
+                return true;
+            }
+        }
+
+        winningCombination = [];
+
+        return false;
+    }
+
+    private static bool IsBoardFull(GameState gameState)
+    {
+        return gameState.Board.All(
+            cell => cell.HasValue);
+    }
 
     public GameState UndoMove(Guid gameId)
     {
-        if(!_games.TryGetValue(gameId, out var gameState))
+        if (!_games.TryGetValue(gameId, out var gameState))
         {
-            throw new KeyNotFoundException($"Game with ID {gameId} not found.");
+            throw new KeyNotFoundException(
+                $"Game with ID {gameId} not found.");
         }
 
-        if(gameState.Status != GameStatus.InProgress)
+        if (gameState.Status != GameStatus.InProgress)
         {
-            throw new InvalidOperationException("Cannot undo move. Game is already finished.");
+            throw new InvalidOperationException(
+                "Cannot undo move. Game is already finished.");
         }
 
-        if(gameState.MoveHistory.Count == 0)
+        if (gameState.MoveHistory.Count == 0)
         {
-            throw new InvalidOperationException("No moves to undo.");
+            throw new InvalidOperationException(
+                "No moves to undo.");
         }
 
-        var lastMove = gameState.MoveHistory[^1];
-        var index = lastMove.Row * 3 + lastMove.Column;
-        gameState.Board[index] = null;
-        gameState.MoveHistory.RemoveAt(gameState.MoveHistory.Count - 1);
-        gameState.CurrentPlayer = lastMove.Player;
+        if (gameState.Mode == GameMode.PlayerVsComputer)
+        {
+            /*
+             * Requirement:
+             * Undo the computer's O move and the human's
+             * previous X move together.
+             */
 
+            var movesToUndo =
+                Math.Min(
+                    2,
+                    gameState.MoveHistory.Count);
+
+            for (var i = 0; i < movesToUndo; i++)
+            {
+                RemoveLastMove(gameState);
+            }
+
+            gameState.CurrentPlayer = Player.X;
+        }
+        else
+        {
+            /*
+             * Player-vs-player:
+             * remove exactly one move and give the
+             * turn back to the player whose move
+             * was removed.
+             */
+
+            var removedPlayer =
+                gameState.MoveHistory[^1].Player;
+
+            RemoveLastMove(gameState);
+
+            gameState.CurrentPlayer =
+                removedPlayer;
+        }
+
+        gameState.Status = GameStatus.InProgress;
         gameState.Winner = null;
         gameState.WinningCombination.Clear();
-        gameState.Status = GameStatus.InProgress;
 
         return gameState;
     }
 
+    private static void RemoveLastMove(
+        GameState gameState)
+    {
+        var lastMove =
+            gameState.MoveHistory[^1];
+
+        var cellIndex =
+            lastMove.Row * 3 +
+            lastMove.Column;
+
+        gameState.Board[cellIndex] = null;
+
+        gameState.MoveHistory.RemoveAt(
+            gameState.MoveHistory.Count - 1);
+    }
+
     public GameState ResetGame(Guid gameId)
     {
-        if(!_games.TryGetValue(gameId, out var gameState))
+        if (!_games.TryGetValue(gameId, out var gameState))
         {
-            throw new KeyNotFoundException($"Game with ID {gameId} not found.");
+            throw new KeyNotFoundException(
+                $"Game with ID {gameId} not found.");
         }
 
-        // Clear the board and move history
         Array.Clear(gameState.Board);
+
         gameState.MoveHistory.Clear();
         gameState.WinningCombination.Clear();
 
-        // Reset the current player and status
         gameState.CurrentPlayer = Player.X;
         gameState.Status = GameStatus.InProgress;
         gameState.Winner = null;
@@ -202,5 +437,4 @@ public class GameService : IGameService
 
         return _scoreboard;
     }
-
 }

@@ -15,6 +15,14 @@ public class GameServiceTests
         });
     }
 
+    private GameState CreateComputerGame()
+    {
+        return _gameService.CreateGame(new CreateGameRequest
+        {
+            Mode = GameMode.PlayerVsComputer
+        });
+    }
+
     [Fact]
     public void CreateGame_ShouldStartWithPlayerX()
     {
@@ -325,6 +333,92 @@ public class GameServiceTests
         Assert.Equal(0, scoreboard.PlayerXWins);
         Assert.Equal(0, scoreboard.PlayerOWins);
         Assert.Equal(0, scoreboard.Draws);
+    }
+
+    [Fact]
+    public void ComputerMode_ShouldAutomaticallyMakeOMove()
+    {
+        var game = CreateComputerGame();
+
+        var result = _gameService.MakeMove(
+            game.Id,
+            new MakeMoveRequest
+            {
+                Player = Player.X,
+                Row = 0,
+                Column = 0
+            });
+
+        Assert.Equal(2, result.MoveHistory.Count);
+        Assert.Equal(Player.X, result.MoveHistory[0].Player);
+        Assert.Equal(Player.O, result.MoveHistory[1].Player);
+        Assert.Equal(Player.X, result.CurrentPlayer);
+    }
+
+    [Fact]
+    public void Computer_ShouldTakeCenterWhenAvailable()
+    {
+        var game = CreateComputerGame();
+
+        var result = _gameService.MakeMove(
+            game.Id,
+            new MakeMoveRequest
+            {
+                Player = Player.X,
+                Row = 0,
+                Column = 0
+            });
+
+        Assert.Equal(Player.O, result.Board[4]);
+    }
+
+    [Fact]
+    public void Computer_ShouldBlockPlayerXWinningMove()
+    {
+        var game = CreateComputerGame();
+
+        // X: 0 → computer center
+        _gameService.MakeMove(
+            game.Id,
+            new MakeMoveRequest
+            {
+                Player = Player.X,
+                Row = 0,
+                Column = 0
+            });
+
+        // X: 1 → computer must block 2
+        var result = _gameService.MakeMove(
+            game.Id,
+            new MakeMoveRequest
+            {
+                Player = Player.X,
+                Row = 0,
+                Column = 1
+            });
+
+        Assert.Equal(Player.O, result.Board[2]);
+    }
+
+    [Fact]
+    public void Undo_InComputerMode_ShouldRemoveHumanAndComputerMoves()
+    {
+        var game = CreateComputerGame();
+
+        _gameService.MakeMove(
+            game.Id,
+            new MakeMoveRequest
+            {
+                Player = Player.X,
+                Row = 0,
+                Column = 0
+            });
+
+        var result = _gameService.UndoMove(game.Id);
+
+        Assert.Empty(result.MoveHistory);
+        Assert.All(result.Board, cell => Assert.Null(cell));
+        Assert.Equal(Player.X, result.CurrentPlayer);
     }
     
 }
