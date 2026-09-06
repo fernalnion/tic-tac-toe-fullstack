@@ -54,6 +54,8 @@ Reset Game creates a fresh game state while preserving:
 
 The board, move history, winner and winning combination are cleared. The game status returns to `InProgress` and Player X starts again.
 
+---
+
 ## Tech Stack
 
 ### Frontend
@@ -77,6 +79,8 @@ The board, move history, winner and winning combination are cleared. The game st
 ### Testing
 
 - xUnit
+
+---
 
 ## Architecture
 
@@ -109,6 +113,8 @@ The backend is the source of truth for the game.
 
 Game rules such as move validation, turn switching, win detection, draw detection, Undo behaviour and computer moves are handled by the backend. The frontend sends player actions to the API and renders the returned game state.
 
+---
+
 ## Project Structure
 
 ```text
@@ -140,9 +146,11 @@ tic-tac-toe-fullstack/
 └── README.md
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+# Getting Started
+
+## Prerequisites
 
 Install the following:
 
@@ -160,14 +168,11 @@ npm --version
 git --version
 ```
 
-### Clone the Repository
+## Quick Start
 
-```bash
-git clone https://github.com/fernalnion/tic-tac-toe-fullstack.git
-cd tic-tac-toe-fullstack
-```
+The application requires two processes to run locally: the ASP.NET Core backend and the Angular frontend.
 
-## Run the Backend
+### Terminal 1 – Backend
 
 From the repository root:
 
@@ -183,13 +188,62 @@ The backend runs at:
 http://localhost:5275
 ```
 
-Swagger API documentation is available at:
+Swagger API documentation:
 
 ```text
 http://localhost:5275/docs
 ```
 
-## Run the Frontend
+### Terminal 2 – Frontend
+
+From the repository root:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Open the application at:
+
+```text
+http://localhost:4200
+```
+
+> The backend must be running for the frontend to create and play games.
+
+---
+
+## Clone and Run
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/fernalnion/tic-tac-toe-fullstack.git
+cd tic-tac-toe-fullstack
+```
+
+### 2. Run the Backend
+
+```bash
+cd backend
+dotnet restore TicTacToe.slnx
+dotnet run --project TicTacToe.Api
+```
+
+Backend:
+
+```text
+http://localhost:5275
+```
+
+Swagger:
+
+```text
+http://localhost:5275/docs
+```
+
+### 3. Run the Frontend
 
 Open another terminal from the repository root:
 
@@ -199,13 +253,13 @@ npm install
 npm start
 ```
 
-Open the application in a browser:
+Open:
 
 ```text
 http://localhost:4200
 ```
 
-> The backend must be running before starting a game.
+---
 
 ## Run Backend Tests
 
@@ -216,6 +270,14 @@ cd backend
 dotnet test TicTacToe.slnx
 ```
 
+The current backend test suite contains **27 tests** covering the main game rules, state transitions, scoreboard behaviour, Undo behaviour and computer strategy.
+
+Expected result:
+
+```text
+Test summary: total: 27, failed: 0, succeeded: 27, skipped: 0
+```
+
 ## Build the Frontend
 
 ```bash
@@ -223,11 +285,13 @@ cd frontend
 npm run build
 ```
 
-## API Endpoints
+---
 
-### Games
+# API Endpoints
 
-#### Create Game
+## Games
+
+### Create Game
 
 ```http
 POST /api/games
@@ -248,13 +312,13 @@ PlayerVsPlayer
 PlayerVsComputer
 ```
 
-#### Get Game State
+### Get Game State
 
 ```http
 GET /api/games/{gameId}
 ```
 
-#### Make Move
+### Make Move
 
 ```http
 POST /api/games/{gameId}/moves
@@ -272,13 +336,13 @@ Example request:
 
 Rows and columns use zero-based indexing.
 
-#### Undo Move
+### Undo Move
 
 ```http
 POST /api/games/{gameId}/undo
 ```
 
-#### Reset Game
+### Reset Game
 
 ```http
 POST /api/games/{gameId}/reset
@@ -286,9 +350,9 @@ POST /api/games/{gameId}/reset
 
 Reset creates a fresh game state while preserving the existing game ID, selected mode and session scoreboard.
 
-### Scoreboard
+## Scoreboard
 
-#### Get Scoreboard
+### Get Scoreboard
 
 ```http
 GET /api/scoreboard
@@ -306,15 +370,17 @@ Example response:
 
 In **Player vs Computer** mode, Player O represents the computer.
 
-#### Reset Scoreboard
+### Reset Scoreboard
 
 ```http
 POST /api/scoreboard/reset
 ```
 
-## Testing
+---
 
-The backend test suite covers the main game rules, state transitions and edge cases, including:
+# Testing
+
+The backend test suite contains **27 tests** covering the main game rules, state transitions and edge cases, including:
 
 - Initial game state
 - Valid move placement
@@ -333,7 +399,8 @@ The backend test suite covers the main game rules, state transitions and edge ca
 - Undo after game completion
 - Fresh game state after Reset Game
 - Scoreboard preservation after Reset Game
-- Scoreboard updates
+- Scoreboard updates after wins and draws
+- Scoreboard updates only once for a completed game
 - Scoreboard reset
 - Automatic computer moves
 - Computer taking the center when available
@@ -349,21 +416,23 @@ cd backend
 dotnet test TicTacToe.slnx
 ```
 
-## Design Decisions
+---
 
-### Backend as Source of Truth
+# Design Decisions
+
+## Backend as Source of Truth
 
 Game rules are handled by the backend rather than duplicated in Angular.
 
 This keeps validation and state transitions in one place and ensures that the game state returned by the API is authoritative.
 
-### REST Instead of WebSockets
+## REST Instead of WebSockets
 
 REST is sufficient for the current scope because game actions originate from the local client and each action receives the updated state in the API response.
 
 SignalR or WebSockets would be more appropriate for remote multiplayer, where moves need to be pushed to another connected player in real time.
 
-### In-Memory Storage
+## In-Memory Storage
 
 The exercise does not require persistent storage, so game sessions and scoreboard data are stored in memory.
 
@@ -371,7 +440,7 @@ This keeps the application simple to set up and run without requiring a database
 
 The trade-off is that restarting the backend clears all game sessions and scoreboard data.
 
-### Board Representation
+## Board Representation
 
 The board is represented as nine positions:
 
@@ -391,7 +460,7 @@ index = row * 3 + column
 
 The flat representation keeps move handling and winning-combination checks straightforward.
 
-### Computer Strategy
+## Computer Strategy
 
 The computer uses a deterministic rule-based strategy:
 
@@ -406,7 +475,7 @@ The strategy intentionally remains simple for the scope of the exercise while en
 - Blocks an immediate Player X win
 - Uses a predictable fallback strategy
 
-### Undo Strategy
+## Undo Strategy
 
 The implementation follows **Option A: Disable Undo After Completion**.
 
@@ -414,15 +483,15 @@ This keeps completed game results final and avoids changing scoreboard values af
 
 In Player vs Computer mode, the human move and corresponding computer move are treated as one Undo cycle.
 
-### Reset Strategy
+## Reset Strategy
 
 Reset Game creates a new `GameState` for the existing game resource.
 
-The game ID and selected mode are preserved, while the board, history and completion state are cleared.
+The game ID and selected mode are preserved, while the board, move history and completion state are cleared.
 
 The session-level scoreboard is intentionally unaffected by resetting an individual game.
 
-### Angular Signals
+## Angular Signals
 
 Angular Signals are used for local UI state such as:
 
@@ -432,11 +501,13 @@ Angular Signals are used for local UI state such as:
 - Loading state
 - Error messages
 
-Computed signals are used for derived values such as the game status text and Undo availability.
+Computed signals are used for derived values such as game status text and Undo availability.
 
 A larger state-management library was not necessary for the scope of this application.
 
-## Assumptions and Clarifications
+---
+
+# Assumptions and Clarifications
 
 - Player X always starts.
 - The human is Player X in Player vs Computer mode.
@@ -450,7 +521,9 @@ A larger state-management library was not necessary for the scope of this applic
 - Persistent storage is not required.
 - Game and scoreboard state are lost when the backend restarts.
 
-## Error Handling
+---
+
+# Error Handling
 
 The backend validates cases including:
 
@@ -465,7 +538,9 @@ The backend validates cases including:
 
 Errors returned by the API are displayed by the frontend.
 
-## AI Tools and Prompt Summary
+---
+
+# AI Tools and Prompt Summary
 
 AI tools were used selectively as a supporting development aid during the exercise.
 
@@ -490,7 +565,9 @@ AI suggestions were reviewed before being applied. The game logic, API integrati
 
 Implementation choices were adjusted where needed to keep the solution aligned with the assessment requirements and intentionally simple for the scope of the exercise.
 
-## Known Limitations
+---
+
+# Known Limitations
 
 - Game state is stored only in memory.
 - Scoreboard state is stored only in memory.
@@ -500,7 +577,9 @@ Implementation choices were adjusted where needed to keep the solution aligned w
 - No authentication or player accounts.
 - The computer uses a rule-based strategy rather than Minimax.
 
-## Future Improvements
+---
+
+# Future Improvements
 
 Possible improvements include:
 
